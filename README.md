@@ -43,8 +43,14 @@ pip install Flask pymongo pytz python-dateutil paho-mqtt
 ```bash
 pip install -r requirements.txt
 
-
+#Important installations(visit official website)
 Make sure to install RabbitMQ and Erlang
+# enable important plugins(do this in rabbitmq command prompt)
+rabbitmq-plugins enable rabbitmq_mqtt
+rabbitmq-plugins enable rabbitmq_management
+#Check if it is enabled
+rabbitmq-plugins list
+
 
 # Setup Instructions
 # For Status Counts API
