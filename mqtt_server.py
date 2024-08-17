@@ -1,36 +1,50 @@
-import pika
-from pymongo.mongo_client import MongoClient
+import paho.mqtt.client as mqtt
+from pymongo import MongoClient
 import json
-from datetime import datetime, timezone
+from datetime import datetime
+import pytz
+from urllib.parse import quote_plus
 
+# Configuration
+MQTT_BROKER = 'localhost'
+MQTT_PORT = 1883
+MQTT_TOPIC = 'Status_topic'
+IST = pytz.timezone('Asia/Kolkata')
 
-RABBITMQ_HOST = 'localhost'
-RABBITMQ_QUEUE = 'status_queue'
-# mongodb url
-MONGODB_URI = 'mongodb+srv://krishnasu:<password>@cluster0.m9dio8j.mongodb.net/'
-MONGODB_DB = 'status_db'
-MONGODB_COLLECTION = 'status_collection'
-
+# MongoDB credentials
+username = 'krishnasu'
+password = 'Krishna@1998'
+host = 'cluster0.m9dio8j.mongodb.net'
+db_name = 'status_db'
+collection_name = 'status_collection'
+encoded_username = quote_plus(username)
+encoded_password = quote_plus(password)
+MONGODB_URI = f'mongodb+srv://{encoded_username}:{encoded_password}@{host}/{db_name}?retryWrites=true&w=majority'
 mongo_client = MongoClient(MONGODB_URI)
-collection = mongo_client[MONGODB_DB][MONGODB_COLLECTION]
+collection = mongo_client[db_name][collection_name]
 
-connection = pika.BlockingConnection(pika.ConnectionParameters(host=RABBITMQ_HOST))
-channel =connection.channel()
+def on_connect(client, userdata, flags, rc):
+    print(f"Connected with result code {rc}")
+    client.subscribe(MQTT_TOPIC)
 
-channel.queue_declare(queue=RABBITMQ_QUEUE)
+def on_message(client, userdata, msg):
+    if msg:
+        message = msg.payload.decode('utf-8')
+        print(f"Message received: {message}")
+        message = json.loads(message)
+        timestamp = datetime.now(pytz.utc).astimezone(IST).isoformat()
+        message['timestamp'] = timestamp
+        collection.insert_one(message)
+        print(f"Message saved to collection: {message}")
 
-def callback(ch, method, properties, body):
-    message = json.loads(body.decode('utf-8'))
-    message['timestamp']= datetime.now(timezone.utc)
-    collection.insert_one(message)
-    print(f"Message saved to collection: {message}")
-    
-channel.basic_consume(queue=RABBITMQ_QUEUE, on_message_callback=callback, auto_ack=True)
-print("Waiting for new messages. To exit press CTRL+C")
 try:
-    channel.start_consuming()
+    while True:
+        client = mqtt.Client()
+        client.on_connect = on_connect
+        client.on_message = on_message
+        client.connect(MQTT_BROKER, MQTT_PORT, 60)
+        client.loop_forever()
+        print("Press CTRL+C to stop/exit the server")
 except KeyboardInterrupt:
-    channel.stop_consuming()
-    connection.close()
-   
-    
+    print("Stopping Server......!")
+    client.disconnect()

@@ -1,7 +1,9 @@
 import paho.mqtt.client as paho
 import random
 import time
+import json
 
+# MQTT Configuration
 MQTT_BROKER = 'localhost'
 MQTT_PORT = 1883
 TOPIC = 'Status_topic'
@@ -12,7 +14,8 @@ try:
     while True:
         status = random.randint(0,6)
         message = {"status": status}
-        client.publish(TOPIC, str(message))
+        client.publish(TOPIC, json.dumps(message))
+        print(f"Message publshed: {message}")
         time.sleep(1)
         print("Press ctrl+c to stop client......!")
 except KeyboardInterrupt:
